@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 
 import { PageTransition } from '@/components/common/PageTransition'
+import { PersistenceStatus } from '@/components/common/PersistenceStatus'
 import { ResultsFamilyCard } from '@/components/results/ResultsFamilyCard'
 import { ArrowIcon } from '@/components/ui/ArrowIcon'
 import { ActionLink, Button } from '@/components/ui/Button'
@@ -124,6 +125,7 @@ export const ResultsPage = () => {
             <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
               عرض النتائج
             </h1>
+            <PersistenceStatus className="mt-2" />
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">

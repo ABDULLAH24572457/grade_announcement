@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 
+import { useCompetitionRealtime } from '@/hooks/use-competition-realtime'
 import { useAppStore } from '@/store/app.store'
 
 interface AppInitializerProps {
@@ -7,6 +8,7 @@ interface AppInitializerProps {
 }
 
 export const AppInitializer = ({ children }: AppInitializerProps) => {
+  useCompetitionRealtime()
   const hydrationStatus = useAppStore((state) => state.hydrationStatus)
   const initialize = useAppStore((state) => state.initialize)
 

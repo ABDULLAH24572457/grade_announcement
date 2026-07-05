@@ -5,11 +5,19 @@ import {
   createDefaultCompetitionData,
   createDefaultStageData,
 } from '@/constants/default-competition-data'
+import {
+  activeCompetitionDataRepository,
+  activePersistenceMode,
+} from '@/services/data/active-competition-data.repository'
+import { localCompetitionDataRepository } from '@/services/data/local-competition-data.repository'
+import { supabaseCompetitionDataRepository } from '@/services/data/supabase-competition-data.repository'
 import { appDataService } from '@/services/storage/app-data.service'
 import type {
   AppData,
   HydrationStatus,
   PersistedAppData,
+  PersistenceMode,
+  RealtimeSyncStatus,
 } from '@/types/app.types'
 import type {
   CompetitionData,
@@ -18,6 +26,11 @@ import type {
 } from '@/types/competition.types'
 import { parseScoreValue } from '@/utils/score-validation'
 
+const SUPABASE_FALLBACK_ERROR =
+  'تعذر الاتصال بقاعدة البيانات. تم استخدام الحفظ المحلي.'
+const PERSISTENCE_ERROR = 'تعذر حفظ البيانات.'
+const LOCAL_LOAD_ERROR = 'تعذر تحميل البيانات المحلية.'
+
 const createInitialData = (): AppData => ({
   selectedStage: null,
   competitionData: createDefaultCompetitionData(),
@@ -25,7 +38,16 @@ const createInitialData = (): AppData => ({
 
 export interface AppStore extends AppData {
   hydrationStatus: HydrationStatus
+  isLoading: boolean
+  isSaving: boolean
+  syncError: string | null
+  lastSyncedAt: number | null
+  persistenceMode: PersistenceMode
+  realtimeStatus: RealtimeSyncStatus
+  lastRemoteUpdateAt: number | null
   initialize: () => Promise<void>
+  applyRemoteCompetitionData: (data: CompetitionData) => void
+  setRealtimeStatus: (status: RealtimeSyncStatus) => void
   selectStage: (stageKey: StageKey) => void
   updateFamilyName: (
     stageKey: StageKey,
@@ -54,31 +76,6 @@ const toPersistedData = (state: AppData): PersistedAppData => ({
   competitionData: state.competitionData,
 })
 
-const toAppData = (state: PersistedAppData): AppData => ({
-  selectedStage: state.selectedStage,
-  competitionData: state.competitionData,
-})
-
-let persistenceQueue = Promise.resolve()
-
-const persist = (state: AppData): Promise<void> => {
-  const data = toPersistedData(state)
-
-  persistenceQueue = persistenceQueue
-    .then(() => appDataService.save(data))
-    .catch(() => undefined)
-
-  return persistenceQueue
-}
-
-const clearPersistedData = (): Promise<void> => {
-  persistenceQueue = persistenceQueue
-    .then(() => appDataService.clear())
-    .catch(() => undefined)
-
-  return persistenceQueue
-}
-
 const updateFamily = (
   competitionData: CompetitionData,
   stageKey: StageKey,
@@ -100,127 +97,305 @@ const updateFamily = (
   }
 }
 
-export const useAppStore = create<AppStore>((set, get) => ({
-  ...createInitialData(),
-  hydrationStatus: 'idle',
+let persistenceQueue = Promise.resolve()
+let latestPersistenceRequest = 0
 
-  initialize: async () => {
-    if (get().hydrationStatus !== 'idle') {
-      return
-    }
+export const useAppStore = create<AppStore>((set, get) => {
+  const queuePersistence = (task: () => Promise<void>): Promise<void> => {
+    const requestId = ++latestPersistenceRequest
+    set({ isSaving: true })
 
-    set({ hydrationStatus: 'loading' })
+    const operation = persistenceQueue
+      .then(task)
+      .catch(() => {
+        set({ syncError: PERSISTENCE_ERROR })
+      })
+      .finally(() => {
+        if (requestId === latestPersistenceRequest) {
+          set({ isSaving: false })
+        }
+      })
 
-    try {
-      const storedData = await appDataService.load()
+    persistenceQueue = operation
+    return operation
+  }
+
+  const cacheLocalSnapshot = async (
+    competitionData: CompetitionData,
+  ): Promise<void> => {
+    await appDataService.save(
+      toPersistedData({
+        selectedStage: get().selectedStage,
+        competitionData,
+      }),
+    )
+  }
+
+  const persistCompetitionData = (
+    competitionData: CompetitionData,
+  ): Promise<void> =>
+    queuePersistence(async () => {
+      if (get().persistenceMode === 'supabase') {
+        let savedLocally = false
+
+        try {
+          await cacheLocalSnapshot(competitionData)
+          savedLocally = true
+        } catch {
+          // Supabase can still save even when browser storage is unavailable.
+        }
+
+        try {
+          await supabaseCompetitionDataRepository.saveCompetitionData(
+            competitionData,
+          )
+          set({
+            lastSyncedAt: Date.now(),
+            syncError: null,
+          })
+          return
+        } catch {
+          if (!savedLocally) {
+            try {
+              await localCompetitionDataRepository.saveCompetitionData(
+                competitionData,
+              )
+              savedLocally = true
+            } catch {
+              savedLocally = false
+            }
+          }
+
+          if (savedLocally) {
+            set({
+              persistenceMode: 'local',
+              realtimeStatus: 'inactive',
+              lastSyncedAt: Date.now(),
+              syncError: SUPABASE_FALLBACK_ERROR,
+            })
+          } else {
+            set({
+              persistenceMode: 'local',
+              realtimeStatus: 'inactive',
+              syncError: PERSISTENCE_ERROR,
+            })
+          }
+          return
+        }
+      }
+
+      try {
+        await localCompetitionDataRepository.saveCompetitionData(
+          competitionData,
+        )
+        set((state) => ({
+          lastSyncedAt: Date.now(),
+          syncError:
+            activePersistenceMode === 'supabase' ? state.syncError : null,
+        }))
+      } catch {
+        set({ syncError: PERSISTENCE_ERROR })
+      }
+    })
+
+  const persistSelectedStage = (): Promise<void> =>
+    queuePersistence(async () => {
+      try {
+        await cacheLocalSnapshot(get().competitionData)
+        if (get().persistenceMode === 'local') {
+          set({ lastSyncedAt: Date.now() })
+        }
+      } catch {
+        set({ syncError: PERSISTENCE_ERROR })
+      }
+    })
+
+  return {
+    ...createInitialData(),
+    hydrationStatus: 'idle',
+    isLoading: false,
+    isSaving: false,
+    syncError: null,
+    lastSyncedAt: null,
+    persistenceMode: activePersistenceMode,
+    realtimeStatus: 'inactive',
+    lastRemoteUpdateAt: null,
+
+    initialize: async () => {
+      if (get().hydrationStatus !== 'idle') {
+        return
+      }
 
       set({
-        ...(storedData ? toAppData(storedData) : createInitialData()),
-        hydrationStatus: 'ready',
+        hydrationStatus: 'loading',
+        isLoading: true,
+        persistenceMode: activePersistenceMode,
       })
-    } catch {
-      set({ hydrationStatus: 'error' })
-    }
-  },
 
-  selectStage: (selectedStage) => {
-    set({ selectedStage })
-    void persist(get())
-  },
+      const locallyStoredData = await appDataService
+        .load()
+        .catch(() => null)
 
-  updateFamilyName: (stageKey, familyId, name) => {
-    set((state) => ({
-      competitionData: updateFamily(
-        state.competitionData,
-        stageKey,
-        familyId,
-        (family) => ({ ...family, name }),
-      ),
-    }))
-    void persist(get())
-  },
+      try {
+        const competitionData =
+          await activeCompetitionDataRepository.getCompetitionData()
+        const selectedStage = locallyStoredData?.selectedStage ?? null
 
-  updateScoreValue: (stageKey, familyId, slotId, value) => {
-    const safeValue = parseScoreValue(value)
+        set({
+          selectedStage,
+          competitionData,
+          hydrationStatus: 'ready',
+          isLoading: false,
+          syncError: null,
+          lastSyncedAt: Date.now(),
+          persistenceMode: activePersistenceMode,
+          realtimeStatus: 'inactive',
+        })
 
-    if (safeValue === null) {
-      return
-    }
+        if (activePersistenceMode === 'supabase') {
+          try {
+            await cacheLocalSnapshot(competitionData)
+          } catch {
+            // The remote data remains usable even if local caching is blocked.
+          }
+        }
+      } catch {
+        set({
+          selectedStage: locallyStoredData?.selectedStage ?? null,
+          competitionData:
+            locallyStoredData?.competitionData ??
+            createDefaultCompetitionData(),
+          hydrationStatus: 'ready',
+          isLoading: false,
+          syncError:
+            activePersistenceMode === 'supabase'
+              ? SUPABASE_FALLBACK_ERROR
+              : LOCAL_LOAD_ERROR,
+          persistenceMode: 'local',
+          realtimeStatus: 'inactive',
+        })
+      }
+    },
 
-    set((state) => ({
-      competitionData: updateFamily(
-        state.competitionData,
-        stageKey,
-        familyId,
-        (family) => ({
-          ...family,
-          scoreSlots: family.scoreSlots.map((slot) =>
-            slot.id === slotId ? { ...slot, value: safeValue } : slot,
-          ),
-        }),
-      ),
-    }))
-    void persist(get())
-  },
+    applyRemoteCompetitionData: (competitionData) => {
+      if (get().persistenceMode !== 'supabase' || get().isSaving) {
+        return
+      }
 
-  toggleScoreReveal: (stageKey, familyId, slotId) => {
-    set((state) => ({
-      competitionData: updateFamily(
-        state.competitionData,
-        stageKey,
-        familyId,
-        (family) => ({
-          ...family,
-          scoreSlots: family.scoreSlots.map((slot) =>
-            slot.id === slotId
-              ? { ...slot, isRevealed: !slot.isRevealed }
-              : slot,
-          ),
-        }),
-      ),
-    }))
-    void persist(get())
-  },
+      set({
+        competitionData,
+        lastRemoteUpdateAt: Date.now(),
+        realtimeStatus: 'connected',
+      })
 
-  resetStageRevealState: (stageKey) => {
-    set((state) => {
-      const stage = state.competitionData.stages[stageKey]
+      void cacheLocalSnapshot(competitionData).catch(() => undefined)
+    },
 
-      return {
+    setRealtimeStatus: (realtimeStatus) => {
+      set({ realtimeStatus })
+    },
+
+    selectStage: (selectedStage) => {
+      set({ selectedStage })
+      void persistSelectedStage()
+    },
+
+    updateFamilyName: (stageKey, familyId, name) => {
+      set((state) => ({
+        competitionData: updateFamily(
+          state.competitionData,
+          stageKey,
+          familyId,
+          (family) => ({ ...family, name }),
+        ),
+      }))
+      void persistCompetitionData(get().competitionData)
+    },
+
+    updateScoreValue: (stageKey, familyId, slotId, value) => {
+      const safeValue = parseScoreValue(value)
+
+      if (safeValue === null) {
+        return
+      }
+
+      set((state) => ({
+        competitionData: updateFamily(
+          state.competitionData,
+          stageKey,
+          familyId,
+          (family) => ({
+            ...family,
+            scoreSlots: family.scoreSlots.map((slot) =>
+              slot.id === slotId ? { ...slot, value: safeValue } : slot,
+            ),
+          }),
+        ),
+      }))
+      void persistCompetitionData(get().competitionData)
+    },
+
+    toggleScoreReveal: (stageKey, familyId, slotId) => {
+      set((state) => ({
+        competitionData: updateFamily(
+          state.competitionData,
+          stageKey,
+          familyId,
+          (family) => ({
+            ...family,
+            scoreSlots: family.scoreSlots.map((slot) =>
+              slot.id === slotId
+                ? { ...slot, isRevealed: !slot.isRevealed }
+                : slot,
+            ),
+          }),
+        ),
+      }))
+      void persistCompetitionData(get().competitionData)
+    },
+
+    resetStageRevealState: (stageKey) => {
+      set((state) => {
+        const stage = state.competitionData.stages[stageKey]
+
+        return {
+          competitionData: {
+            stages: {
+              ...state.competitionData.stages,
+              [stageKey]: {
+                ...stage,
+                families: stage.families.map((family) => ({
+                  ...family,
+                  scoreSlots: family.scoreSlots.map((slot) => ({
+                    ...slot,
+                    isRevealed: false,
+                  })),
+                })),
+              },
+            },
+          },
+        }
+      })
+      void persistCompetitionData(get().competitionData)
+    },
+
+    resetStageData: (stageKey) => {
+      set((state) => ({
         competitionData: {
           stages: {
             ...state.competitionData.stages,
-            [stageKey]: {
-              ...stage,
-              families: stage.families.map((family) => ({
-                ...family,
-                scoreSlots: family.scoreSlots.map((slot) => ({
-                  ...slot,
-                  isRevealed: false,
-                })),
-              })),
-            },
+            [stageKey]: createDefaultStageData(stageKey),
           },
         },
-      }
-    })
-    void persist(get())
-  },
+      }))
+      void persistCompetitionData(get().competitionData)
+    },
 
-  resetStageData: (stageKey) => {
-    set((state) => ({
-      competitionData: {
-        stages: {
-          ...state.competitionData.stages,
-          [stageKey]: createDefaultStageData(stageKey),
-        },
-      },
-    }))
-    void persist(get())
-  },
-
-  resetAllData: async () => {
-    set({ ...createInitialData(), hydrationStatus: 'ready' })
-    await clearPersistedData()
-  },
-}))
+    resetAllData: async () => {
+      const initialData = createInitialData()
+      set({ ...initialData, hydrationStatus: 'ready' })
+      await persistCompetitionData(initialData.competitionData)
+      await persistSelectedStage()
+    },
+  }
+})

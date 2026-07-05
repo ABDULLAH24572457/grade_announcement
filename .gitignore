@@ -4,3 +4,6 @@ dist
 *.local
 *.log
 .vite
+.env
+.env.*
+!.env.example
