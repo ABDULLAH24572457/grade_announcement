@@ -1,96 +1,149 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Navigate } from 'react-router-dom'
+
 import { PageHeader } from '@/components/common/PageHeader'
 import { PageTransition } from '@/components/common/PageTransition'
+import { SetupFamilyCard } from '@/components/setup/SetupFamilyCard'
 import { ArrowIcon } from '@/components/ui/ArrowIcon'
-import { ActionLink } from '@/components/ui/Button'
+import { ActionLink, Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import {
-  MODE_OPTIONS,
-  STAGE_OPTIONS,
-} from '@/constants/app.constants'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ROUTES } from '@/constants/routes.constants'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useAppStore } from '@/store/app.store'
 
+const SAVE_MESSAGE_DURATION = 2500
+
 export const ResultsSetupPage = () => {
   useDocumentTitle('إعداد النتائج')
   const selectedStage = useAppStore((state) => state.selectedStage)
-  const selectedMode = useAppStore((state) => state.selectedMode)
-  const eventDraft = useAppStore((state) => state.eventDraft)
-  const updateEventDraft = useAppStore((state) => state.updateEventDraft)
+  const stage = useAppStore((state) =>
+    state.selectedStage
+      ? state.competitionData.stages[state.selectedStage]
+      : undefined,
+  )
+  const updateFamilyName = useAppStore((state) => state.updateFamilyName)
+  const updateScoreValue = useAppStore((state) => state.updateScoreValue)
+  const resetStageData = useAppStore((state) => state.resetStageData)
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  const saveMessageTimeoutRef = useRef<number | null>(null)
 
-  const stageLabel =
-    STAGE_OPTIONS.find((option) => option.id === selectedStage)?.title ??
-    'غير محددة'
-  const modeLabel =
-    MODE_OPTIONS.find((option) => option.id === selectedMode)?.title ??
-    'غير محدد'
+  const closeResetDialog = useCallback(() => {
+    setIsResetDialogOpen(false)
+  }, [])
+
+  const confirmReset = useCallback(() => {
+    if (selectedStage) {
+      resetStageData(selectedStage)
+    }
+    setIsResetDialogOpen(false)
+  }, [resetStageData, selectedStage])
+
+  const showSaveFeedback = useCallback(() => {
+    if (saveMessageTimeoutRef.current !== null) {
+      window.clearTimeout(saveMessageTimeoutRef.current)
+    }
+
+    setSaveMessage('تم حفظ التعديلات بنجاح')
+    saveMessageTimeoutRef.current = window.setTimeout(() => {
+      setSaveMessage('')
+      saveMessageTimeoutRef.current = null
+    }, SAVE_MESSAGE_DURATION)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (saveMessageTimeoutRef.current !== null) {
+        window.clearTimeout(saveMessageTimeoutRef.current)
+      }
+    },
+    [],
+  )
+
+  if (!selectedStage || !stage) {
+    return <Navigate to={ROUTES.home} replace />
+  }
 
   return (
-    <PageTransition>
+    <PageTransition className="page-container w-full py-8 sm:py-12">
       <PageHeader
-        eyebrow="الخطوة الثالثة"
-        title="لنجهّز شاشة النتائج"
-        description="أضف المعلومات الأساسية التي ستعرّف الجمهور بالحدث. ستتوفر حقول النتائج التفصيلية في المرحلة التالية من التطوير."
+        title={`إعداد نتائج مرحلة ${stage.label}`}
+        description="عدّل أسماء الأسر والدرجات. تُحفظ جميع التغييرات تلقائيًا على هذا الجهاز."
       />
 
-      <div className="mx-auto grid max-w-4xl gap-5 lg:grid-cols-[1fr_0.48fr]">
-        <Card>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Input
-              name="eventTitle"
-              label="اسم الفعالية"
-              placeholder="مثال: مسابقة الإبداع السنوية"
-              value={eventDraft.title}
-              onChange={(event) =>
-                updateEventDraft({ title: event.target.value })
+      {stage.families.length > 0 ? (
+        <div className="space-y-4 sm:space-y-5">
+          {stage.families.map((family, familyIndex) => (
+            <SetupFamilyCard
+              key={family.id}
+              family={family}
+              familyIndex={familyIndex}
+              onNameChange={(familyId, name) =>
+                updateFamilyName(selectedStage, familyId, name)
+              }
+              onScoreChange={(familyId, slotId, value) =>
+                updateScoreValue(selectedStage, familyId, slotId, value)
               }
             />
-            <Input
-              name="eventCategory"
-              label="الفئة أو المسار"
-              placeholder="مثال: فئة المرحلة الثانوية"
-              value={eventDraft.category}
-              onChange={(event) =>
-                updateEventDraft({ category: event.target.value })
-              }
-            />
-          </div>
-
-          <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-5 text-center">
-            <p className="text-sm font-bold text-slate-300">
-              إعداد المشاركين والدرجات
-            </p>
-            <p className="mt-2 text-xs leading-6 text-slate-500">
-              سيُضاف في مرحلة بناء منطق النتائج، مع الحفاظ على هذه البنية كما هي.
-            </p>
-          </div>
+          ))}
+        </div>
+      ) : (
+        <Card className="py-12 text-center">
+          <p className="font-bold text-white">لا توجد أسر في هذه المرحلة</p>
         </Card>
+      )}
 
-        <Card className="h-fit">
-          <p className="mb-5 text-sm font-bold text-white">ملخص الاختيارات</p>
-          <dl className="space-y-4">
-            <div>
-              <dt className="text-xs text-slate-500">مرحلة المنافسة</dt>
-              <dd className="mt-1 font-bold text-slate-200">{stageLabel}</dd>
-            </div>
-            <div className="border-t border-white/[0.07] pt-4">
-              <dt className="text-xs text-slate-500">نمط العرض</dt>
-              <dd className="mt-1 font-bold text-slate-200">{modeLabel}</dd>
-            </div>
-          </dl>
-        </Card>
+      <div
+        className="mt-6 min-h-11 text-center sm:text-left"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {saveMessage && (
+          <p
+            role="status"
+            className="inline-flex rounded-xl border border-emerald-300/20 bg-emerald-300/[0.08] px-4 py-2.5 text-sm font-bold text-emerald-200"
+          >
+            {saveMessage}
+          </p>
+        )}
       </div>
 
-      <div className="mx-auto mt-8 flex max-w-4xl flex-col-reverse justify-between gap-3 sm:mt-10 sm:flex-row">
-        <ActionLink to={ROUTES.modes} variant="ghost" size="lg">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ActionLink to={ROUTES.actions} variant="ghost" size="lg" fullWidth>
           <ArrowIcon direction="back" />
-          العودة إلى النمط
+          رجوع
         </ActionLink>
-        <ActionLink to={ROUTES.presentation} size="lg">
-          معاينة شاشة العرض
+        <Button
+          variant="secondary"
+          size="lg"
+          fullWidth
+          className="border-red-300/20 text-red-200 hover:border-red-300/35 hover:bg-red-300/[0.08]"
+          onClick={() => setIsResetDialogOpen(true)}
+        >
+          إعادة ضبط المرحلة
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          fullWidth
+          onClick={showSaveFeedback}
+        >
+          حفظ التعديلات
+        </Button>
+        <ActionLink to={ROUTES.results} size="lg" fullWidth>
+          معاينة العرض
         </ActionLink>
       </div>
+
+      <ConfirmDialog
+        isOpen={isResetDialogOpen}
+        title="إعادة ضبط المرحلة؟"
+        description="هل أنت متأكد من إعادة ضبط هذه المرحلة؟ سيتم حذف أسماء الأسر والدرجات لهذه المرحلة فقط."
+        confirmLabel="نعم، إعادة الضبط"
+        onConfirm={confirmReset}
+        onCancel={closeResetDialog}
+      />
     </PageTransition>
   )
 }

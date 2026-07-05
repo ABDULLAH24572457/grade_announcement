@@ -1,13 +1,11 @@
 import { createBrowserRouter } from 'react-router-dom'
 
 import { AppLayout } from '@/layouts/AppLayout'
-import { FlowLayout } from '@/layouts/FlowLayout'
 import { HomePage } from '@/pages/HomePage'
-import { ModeSelectionPage } from '@/pages/ModeSelectionPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
-import { ResultsPresentationPage } from '@/pages/ResultsPresentationPage'
+import { ResultsPage } from '@/pages/ResultsPage'
 import { ResultsSetupPage } from '@/pages/ResultsSetupPage'
-import { StageSelectionPage } from '@/pages/StageSelectionPage'
+import { StageActionsPage } from '@/pages/StageActionsPage'
 
 export const router = createBrowserRouter([
   {
@@ -18,25 +16,16 @@ export const router = createBrowserRouter([
         element: <HomePage />,
       },
       {
-        element: <FlowLayout />,
-        children: [
-          {
-            path: 'stages',
-            element: <StageSelectionPage />,
-          },
-          {
-            path: 'modes',
-            element: <ModeSelectionPage />,
-          },
-          {
-            path: 'setup',
-            element: <ResultsSetupPage />,
-          },
-          {
-            path: 'presentation',
-            element: <ResultsPresentationPage />,
-          },
-        ],
+        path: 'actions',
+        element: <StageActionsPage />,
+      },
+      {
+        path: 'setup',
+        element: <ResultsSetupPage />,
+      },
+      {
+        path: 'results',
+        element: <ResultsPage />,
       },
       {
         path: '*',

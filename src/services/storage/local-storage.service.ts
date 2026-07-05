@@ -2,26 +2,42 @@ import {
   APP_DATA_SCHEMA_VERSION,
   APP_STORAGE_KEY,
 } from '@/constants/app.constants'
+import { createDefaultCompetitionData } from '@/constants/default-competition-data'
 import type { PersistedAppData } from '@/types/app.types'
+import type { StageKey } from '@/types/competition.types'
+import { isCompetitionData } from '@/utils/competition-validation'
 
 import type { AppDataService } from './app-data-service.types'
 
-const isPersistedAppData = (value: unknown): value is PersistedAppData => {
-  if (!value || typeof value !== 'object') {
-    return false
+const stageKeys: StageKey[] = ['intermediate', 'secondary']
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isStageKey = (value: unknown): value is StageKey | null =>
+  value === null ||
+  (typeof value === 'string' && stageKeys.includes(value as StageKey))
+
+const isPersistedAppData = (value: unknown): value is PersistedAppData =>
+  isRecord(value) &&
+  value.schemaVersion === APP_DATA_SCHEMA_VERSION &&
+  isStageKey(value.selectedStage) &&
+  isCompetitionData(value.competitionData)
+
+const migrateLegacyData = (value: unknown): PersistedAppData | null => {
+  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2)) {
+    return null
   }
 
-  const candidate = value as Partial<PersistedAppData>
+  const competitionData = isCompetitionData(value.competitionData)
+    ? value.competitionData
+    : createDefaultCompetitionData()
 
-  return (
-    candidate.schemaVersion === APP_DATA_SCHEMA_VERSION &&
-    (candidate.selectedStage === null ||
-      ['qualifiers', 'semifinal', 'final'].includes(candidate.selectedStage ?? '')) &&
-    (candidate.selectedMode === null ||
-      ['leaderboard', 'podium', 'live-score'].includes(candidate.selectedMode ?? '')) &&
-    typeof candidate.eventDraft?.title === 'string' &&
-    typeof candidate.eventDraft?.category === 'string'
-  )
+  return {
+    schemaVersion: APP_DATA_SCHEMA_VERSION,
+    selectedStage: isStageKey(value.selectedStage) ? value.selectedStage : null,
+    competitionData,
+  }
 }
 
 export class LocalStorageAppDataService implements AppDataService {
@@ -33,8 +49,22 @@ export class LocalStorageAppDataService implements AppDataService {
     }
 
     try {
-      const data: unknown = JSON.parse(serializedData)
-      return isPersistedAppData(data) ? data : null
+      const parsedData: unknown = JSON.parse(serializedData)
+
+      if (isPersistedAppData(parsedData)) {
+        return parsedData
+      }
+
+      const migratedData = migrateLegacyData(parsedData)
+
+      if (migratedData) {
+        window.localStorage.setItem(
+          APP_STORAGE_KEY,
+          JSON.stringify(migratedData),
+        )
+      }
+
+      return migratedData
     } catch {
       return null
     }

@@ -1,18 +1,10 @@
-export type StageId = 'qualifiers' | 'semifinal' | 'final'
-
-export type PresentationModeId = 'leaderboard' | 'podium' | 'live-score'
+import type { CompetitionData, StageKey } from './competition.types'
 
 export type HydrationStatus = 'idle' | 'loading' | 'ready' | 'error'
 
-export interface EventDraft {
-  title: string
-  category: string
-}
-
 export interface AppData {
-  selectedStage: StageId | null
-  selectedMode: PresentationModeId | null
-  eventDraft: EventDraft
+  selectedStage: StageKey | null
+  competitionData: CompetitionData
 }
 
 export interface PersistedAppData extends AppData {

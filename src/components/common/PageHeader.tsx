@@ -1,5 +1,5 @@
 interface PageHeaderProps {
-  eyebrow: string
+  eyebrow?: string
   title: string
   description: string
 }
@@ -10,9 +10,11 @@ export const PageHeader = ({
   title,
 }: PageHeaderProps) => (
   <header className="mx-auto mb-8 max-w-3xl text-center sm:mb-12">
-    <p className="mb-3 text-xs font-bold tracking-[0.18em] text-brand-300 sm:text-sm">
-      {eyebrow}
-    </p>
+    {eyebrow && (
+      <p className="mb-3 text-xs font-bold tracking-[0.18em] text-brand-300 sm:text-sm">
+        {eyebrow}
+      </p>
+    )}
     <h1 className="text-balance text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
       {title}
     </h1>
