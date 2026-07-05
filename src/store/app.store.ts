@@ -46,6 +46,7 @@ export interface AppStore extends AppData {
   realtimeStatus: RealtimeSyncStatus
   lastRemoteUpdateAt: number | null
   initialize: () => Promise<void>
+  retryInitialize: () => Promise<void>
   applyRemoteCompetitionData: (data: CompetitionData) => void
   setRealtimeStatus: (status: RealtimeSyncStatus) => void
   selectStage: (stageKey: StageKey) => void
@@ -232,9 +233,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         persistenceMode: activePersistenceMode,
       })
 
-      const locallyStoredData = await appDataService
-        .load()
-        .catch(() => null)
+      let localLoadFailed = false
+      const locallyStoredData = await appDataService.load().catch(() => {
+        localLoadFailed = true
+        return null
+      })
 
       try {
         const competitionData =
@@ -260,6 +263,17 @@ export const useAppStore = create<AppStore>((set, get) => {
           }
         }
       } catch {
+        if (localLoadFailed && !locallyStoredData) {
+          set({
+            hydrationStatus: 'error',
+            isLoading: false,
+            syncError: 'تعذر تحميل البيانات',
+            persistenceMode: 'local',
+            realtimeStatus: 'inactive',
+          })
+          return
+        }
+
         set({
           selectedStage: locallyStoredData?.selectedStage ?? null,
           competitionData:
@@ -275,6 +289,16 @@ export const useAppStore = create<AppStore>((set, get) => {
           realtimeStatus: 'inactive',
         })
       }
+    },
+
+    retryInitialize: async () => {
+      set({
+        hydrationStatus: 'idle',
+        isLoading: false,
+        syncError: null,
+        realtimeStatus: 'inactive',
+      })
+      await get().initialize()
     },
 
     applyRemoteCompetitionData: (competitionData) => {

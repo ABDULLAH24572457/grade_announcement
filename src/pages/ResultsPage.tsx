@@ -11,6 +11,7 @@ import { ROUTES } from '@/constants/routes.constants'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useFullscreen } from '@/hooks/use-fullscreen'
 import { useAppStore } from '@/store/app.store'
+import { calculateStageFullTotal } from '@/utils/competition-calculations'
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -105,6 +106,8 @@ export const ResultsPage = () => {
     return <Navigate to={ROUTES.home} replace />
   }
 
+  const allScoresAreZero = calculateStageFullTotal(stage) === 0
+
   return (
     <PageTransition className="relative min-h-screen w-full overflow-hidden bg-[#050b14]">
       <div
@@ -117,7 +120,7 @@ export const ResultsPage = () => {
       />
 
       <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#050b14]/90 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-12 2xl:px-16">
           <div>
             <p className="text-xs font-bold text-brand-300 sm:text-sm">
               مرحلة {stage.label}
@@ -183,13 +186,22 @@ export const ResultsPage = () => {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <p className="mb-5 text-center text-sm text-slate-400 sm:mb-7 sm:text-base">
+      <main className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-12 2xl:px-16">
+        <p className="mb-4 text-center text-sm text-slate-400 sm:text-base">
           اضغط على الخانة لكشف الدرجة وإضافتها مباشرة إلى مجموع الأسرة.
         </p>
 
+        {allScoresAreZero && (
+          <p
+            role="note"
+            className="mx-auto mb-5 w-fit rounded-xl border border-amber-300/20 bg-amber-300/[0.07] px-4 py-2 text-center text-sm font-bold text-amber-100 sm:mb-7"
+          >
+            تنبيه: جميع الدرجات في هذه المرحلة تساوي صفر.
+          </p>
+        )}
+
         {stage.families.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-5 2xl:gap-6">
             {stage.families.map((family) => (
               <ResultsFamilyCard
                 key={family.id}

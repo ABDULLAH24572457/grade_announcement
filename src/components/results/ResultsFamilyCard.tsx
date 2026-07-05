@@ -21,7 +21,7 @@ export const ResultsFamilyCard = ({
   const familyName = family.name.trim() || 'أسرة بلا اسم'
 
   return (
-    <article className="relative flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0c1929]/90 p-5 shadow-[0_24px_60px_-32px_rgba(0,0,0,0.9)] sm:min-h-80 sm:p-6 xl:min-h-[21rem]">
+    <article className="relative flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0c1929]/90 p-5 shadow-[0_24px_60px_-32px_rgba(0,0,0,0.9)] sm:min-h-80 sm:p-6 xl:min-h-[21rem] 2xl:p-7">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-10 -top-16 h-28 rounded-full bg-brand-300/10 blur-3xl"

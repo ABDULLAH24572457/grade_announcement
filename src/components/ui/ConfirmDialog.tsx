@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   description: string
   confirmLabel: string
   cancelLabel?: string
+  tone?: 'danger' | 'warning'
   onConfirm: () => void
   onCancel: () => void
 }
@@ -21,6 +22,7 @@ export const ConfirmDialog = ({
   isOpen,
   onCancel,
   onConfirm,
+  tone = 'danger',
   title,
 }: ConfirmDialogProps) => {
   const titleId = useId()
@@ -97,7 +99,11 @@ export const ConfirmDialog = ({
               </Button>
               <Button
                 variant="secondary"
-                className="border-red-300/25 text-red-200 hover:border-red-300/40 hover:bg-red-300/[0.08]"
+                className={
+                  tone === 'danger'
+                    ? 'border-red-300/25 text-red-200 hover:border-red-300/40 hover:bg-red-300/[0.08]'
+                    : 'border-amber-300/25 text-amber-100 hover:border-amber-300/40 hover:bg-amber-300/[0.08]'
+                }
                 onClick={onConfirm}
               >
                 {confirmLabel}

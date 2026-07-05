@@ -1,6 +1,6 @@
 import type { StageKey } from '@/types/competition.types'
 
-export const APP_NAME = 'منصة النتائج'
+export const APP_NAME = 'منصة إعلان النتائج'
 export const APP_DATA_SCHEMA_VERSION = 3
 export const APP_STORAGE_KEY = 'competition-results-app'
 

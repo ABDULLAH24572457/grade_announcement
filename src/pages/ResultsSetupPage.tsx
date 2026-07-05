@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 
 import { PageHeader } from '@/components/common/PageHeader'
 import { PageTransition } from '@/components/common/PageTransition'
+import { SetupAccessGate } from '@/components/setup/SetupAccessGate'
 import { SetupFamilyCard } from '@/components/setup/SetupFamilyCard'
 import { ArrowIcon } from '@/components/ui/ArrowIcon'
 import { ActionLink, Button } from '@/components/ui/Button'
@@ -10,12 +11,17 @@ import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ROUTES } from '@/constants/routes.constants'
 import { useDocumentTitle } from '@/hooks/use-document-title'
+import { useSetupAccess } from '@/hooks/use-setup-access'
 import { useAppStore } from '@/store/app.store'
+import { calculateStageFullTotal } from '@/utils/competition-calculations'
 
 const SAVE_MESSAGE_DURATION = 2500
 
 export const ResultsSetupPage = () => {
   useDocumentTitle('إعداد النتائج')
+  const navigate = useNavigate()
+  const { isProtectionEnabled, isUnlocked, lock, unlock } =
+    useSetupAccess()
   const selectedStage = useAppStore((state) => state.selectedStage)
   const stage = useAppStore((state) =>
     state.selectedStage
@@ -26,6 +32,7 @@ export const ResultsSetupPage = () => {
   const updateScoreValue = useAppStore((state) => state.updateScoreValue)
   const resetStageData = useAppStore((state) => state.resetStageData)
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  const [previewWarning, setPreviewWarning] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMessageTimeoutRef = useRef<number | null>(null)
 
@@ -52,6 +59,27 @@ export const ResultsSetupPage = () => {
     }, SAVE_MESSAGE_DURATION)
   }, [])
 
+  const lockSetup = useCallback(() => {
+    if (saveMessageTimeoutRef.current !== null) {
+      window.clearTimeout(saveMessageTimeoutRef.current)
+      saveMessageTimeoutRef.current = null
+    }
+
+    setSaveMessage('')
+    setIsResetDialogOpen(false)
+    setPreviewWarning(null)
+    lock()
+  }, [lock])
+
+  const closePreviewWarning = useCallback(() => {
+    setPreviewWarning(null)
+  }, [])
+
+  const continueToPreview = useCallback(() => {
+    setPreviewWarning(null)
+    navigate(ROUTES.results)
+  }, [navigate])
+
   useEffect(
     () => () => {
       if (saveMessageTimeoutRef.current !== null) {
@@ -65,8 +93,57 @@ export const ResultsSetupPage = () => {
     return <Navigate to={ROUTES.home} replace />
   }
 
+  if (isProtectionEnabled && !isUnlocked) {
+    return <SetupAccessGate onUnlock={unlock} />
+  }
+
+  const openPreview = () => {
+    const warnings: string[] = []
+
+    if (stage.families.some((family) => family.name.trim() === '')) {
+      warnings.push('تنبيه: توجد أسماء أسر فارغة.')
+    }
+
+    if (calculateStageFullTotal(stage) === 0) {
+      warnings.push('تنبيه: جميع الدرجات في هذه المرحلة تساوي صفر.')
+    }
+
+    if (warnings.length > 0) {
+      setPreviewWarning(`${warnings.join(' ')} هل تريد المتابعة؟`)
+      return
+    }
+
+    navigate(ROUTES.results)
+  }
+
   return (
     <PageTransition className="page-container w-full py-8 sm:py-12">
+      {isProtectionEnabled && (
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-11"
+            onClick={lockSetup}
+          >
+            <svg
+              aria-hidden="true"
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect width="16" height="11" x="4" y="10" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+            قفل الإعدادات
+          </Button>
+        </div>
+      )}
+
       <PageHeader
         title={`إعداد نتائج مرحلة ${stage.label}`}
         description="عدّل أسماء الأسر والدرجات. تُحفظ جميع التغييرات تلقائيًا على هذا الجهاز."
@@ -131,9 +208,9 @@ export const ResultsSetupPage = () => {
         >
           حفظ التعديلات
         </Button>
-        <ActionLink to={ROUTES.results} size="lg" fullWidth>
+        <Button type="button" size="lg" fullWidth onClick={openPreview}>
           معاينة العرض
-        </ActionLink>
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -143,6 +220,16 @@ export const ResultsSetupPage = () => {
         confirmLabel="نعم، إعادة الضبط"
         onConfirm={confirmReset}
         onCancel={closeResetDialog}
+      />
+
+      <ConfirmDialog
+        isOpen={previewWarning !== null}
+        title="تنبيه قبل العرض"
+        description={previewWarning ?? ''}
+        confirmLabel="المتابعة إلى العرض"
+        tone="warning"
+        onConfirm={continueToPreview}
+        onCancel={closePreviewWarning}
       />
     </PageTransition>
   )
