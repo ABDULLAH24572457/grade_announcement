@@ -1,63 +1,63 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useCallback, useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 
-import { PageTransition } from '@/components/common/PageTransition'
-import { PersistenceStatus } from '@/components/common/PersistenceStatus'
-import { ResultsFamilyCard } from '@/components/results/ResultsFamilyCard'
-import { ArrowIcon } from '@/components/ui/ArrowIcon'
-import { ActionLink, Button } from '@/components/ui/Button'
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { ROUTES } from '@/constants/routes.constants'
-import { useDocumentTitle } from '@/hooks/use-document-title'
-import { useFullscreen } from '@/hooks/use-fullscreen'
-import { useAppStore } from '@/store/app.store'
-import { calculateStageFullTotal } from '@/utils/competition-calculations'
+import { PageTransition } from "@/components/common/PageTransition";
+import { PersistenceStatus } from "@/components/common/PersistenceStatus";
+import { ResultsFamilyCard } from "@/components/results/ResultsFamilyCard";
+import { ArrowIcon } from "@/components/ui/ArrowIcon";
+import { ActionLink, Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ROUTES } from "@/constants/routes.constants";
+import { useDocumentTitle } from "@/hooks/use-document-title";
+import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useAppStore } from "@/store/app.store";
+import { calculateStageFullTotal } from "@/utils/competition-calculations";
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
-    return false
+    return false;
   }
 
   return (
-    ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
     target.isContentEditable
-  )
-}
+  );
+};
 
 export const ResultsPage = () => {
-  useDocumentTitle('عرض النتائج')
-  const selectedStage = useAppStore((state) => state.selectedStage)
+  useDocumentTitle("عرض النتائج");
+  const selectedStage = useAppStore((state) => state.selectedStage);
   const stage = useAppStore((state) =>
     state.selectedStage
       ? state.competitionData.stages[state.selectedStage]
       : undefined,
-  )
-  const toggleScoreReveal = useAppStore((state) => state.toggleScoreReveal)
+  );
+  const toggleScoreReveal = useAppStore((state) => state.toggleScoreReveal);
   const resetStageRevealState = useAppStore(
     (state) => state.resetStageRevealState,
-  )
+  );
   const {
     exitFullscreen,
     isFullscreen,
     isFullscreenAvailable,
     toggleFullscreen,
-  } = useFullscreen()
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  } = useFullscreen();
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const openResetDialog = useCallback(() => {
-    setIsResetDialogOpen(true)
-  }, [])
+    setIsResetDialogOpen(true);
+  }, []);
 
   const closeResetDialog = useCallback(() => {
-    setIsResetDialogOpen(false)
-  }, [])
+    setIsResetDialogOpen(false);
+  }, []);
 
   const confirmReset = useCallback(() => {
     if (selectedStage) {
-      resetStageRevealState(selectedStage)
+      resetStageRevealState(selectedStage);
     }
-    setIsResetDialogOpen(false)
-  }, [resetStageRevealState, selectedStage])
+    setIsResetDialogOpen(false);
+  }, [resetStageRevealState, selectedStage]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -68,45 +68,40 @@ export const ResultsPage = () => {
         event.metaKey ||
         isTypingTarget(event.target)
       ) {
-        return
+        return;
       }
 
       if (isResetDialogOpen) {
-        if (event.key === 'Escape' && document.fullscreenElement) {
-          void exitFullscreen()
+        if (event.key === "Escape" && document.fullscreenElement) {
+          void exitFullscreen();
         }
-        return
+        return;
       }
 
-      const key = event.key.toLowerCase()
+      const key = event.key.toLowerCase();
 
-      if (key === 'f') {
-        event.preventDefault()
-        void toggleFullscreen()
-      } else if (key === 'r') {
-        event.preventDefault()
-        openResetDialog()
-      } else if (event.key === 'Escape' && document.fullscreenElement) {
-        void exitFullscreen()
+      if (key === "f") {
+        event.preventDefault();
+        void toggleFullscreen();
+      } else if (key === "r") {
+        event.preventDefault();
+        openResetDialog();
+      } else if (event.key === "Escape" && document.fullscreenElement) {
+        void exitFullscreen();
       }
-    }
+    };
 
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    exitFullscreen,
-    isResetDialogOpen,
-    openResetDialog,
-    toggleFullscreen,
-  ])
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [exitFullscreen, isResetDialogOpen, openResetDialog, toggleFullscreen]);
 
   if (!selectedStage || !stage) {
-    return <Navigate to={ROUTES.home} replace />
+    return <Navigate to={ROUTES.home} replace />;
   }
 
-  const allScoresAreZero = calculateStageFullTotal(stage) === 0
+  const allScoresAreZero = calculateStageFullTotal(stage) === 0;
 
   return (
     <PageTransition className="relative min-h-screen w-full overflow-hidden bg-[#050b14]">
@@ -122,9 +117,6 @@ export const ResultsPage = () => {
       <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#050b14]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-12 2xl:px-16">
           <div>
-            <p className="text-xs font-bold text-brand-300 sm:text-sm">
-              مرحلة {stage.label}
-            </p>
             <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
               عرض النتائج
             </h1>
@@ -145,9 +137,7 @@ export const ResultsPage = () => {
               className="min-h-11"
               disabled={!isFullscreenAvailable}
               onClick={() => void toggleFullscreen()}
-              title={
-                isFullscreenAvailable ? undefined : 'ملء الشاشة غير متاح'
-              }
+              title={isFullscreenAvailable ? undefined : "ملء الشاشة غير متاح"}
             >
               <svg
                 aria-hidden="true"
@@ -160,7 +150,7 @@ export const ResultsPage = () => {
               >
                 <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
               </svg>
-              {isFullscreen ? 'الخروج من ملء الشاشة' : 'ملء الشاشة'}
+              {isFullscreen ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
             </Button>
             <Button
               variant="secondary"
@@ -188,7 +178,7 @@ export const ResultsPage = () => {
 
       <main className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-12 2xl:px-16">
         <p className="mb-4 text-center text-sm text-slate-400 sm:text-base">
-          اضغط على الخانة لكشف الدرجة وإضافتها مباشرة إلى مجموع الأسرة.
+          اضغط على الخانة لكشف الدرجة وإضافتها مباشرة إلى المجموع .
         </p>
 
         {allScoresAreZero && (
@@ -209,10 +199,10 @@ export const ResultsPage = () => {
                 onRevealScore={(familyId, slotId) => {
                   const slot = family.scoreSlots.find(
                     (scoreSlot) => scoreSlot.id === slotId,
-                  )
+                  );
 
                   if (slot && !slot.isRevealed) {
-                    toggleScoreReveal(selectedStage, familyId, slotId)
+                    toggleScoreReveal(selectedStage, familyId, slotId);
                   }
                 }}
               />
@@ -237,5 +227,5 @@ export const ResultsPage = () => {
         onCancel={closeResetDialog}
       />
     </PageTransition>
-  )
-}
+  );
+};
