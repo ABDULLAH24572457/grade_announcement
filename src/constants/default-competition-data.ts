@@ -20,8 +20,8 @@ export const DEFAULT_FAMILY_COUNTS: Record<StageKey, number> = {
 }
 
 export const STAGE_LABELS: Record<StageKey, string> = {
-  intermediate: 'متوسط',
-  secondary: 'ثانوي',
+  intermediate: 'تبيان1',
+  secondary: 'تبيان2',
 }
 
 const createScoreSlots = (stageKey: StageKey, familyIndex: number): ScoreSlot[] =>
