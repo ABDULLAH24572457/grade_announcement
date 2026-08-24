@@ -1,36 +1,36 @@
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate } from "react-router-dom";
 
-import { PageTransition } from '@/components/common/PageTransition'
-import { ArrowIcon } from '@/components/ui/ArrowIcon'
-import { ActionLink } from '@/components/ui/Button'
-import { ROUTES } from '@/constants/routes.constants'
-import { useDocumentTitle } from '@/hooks/use-document-title'
-import { useAppStore } from '@/store/app.store'
+import { PageTransition } from "@/components/common/PageTransition";
+import { ArrowIcon } from "@/components/ui/ArrowIcon";
+import { ActionLink } from "@/components/ui/Button";
+import { ROUTES } from "@/constants/routes.constants";
+import { useDocumentTitle } from "@/hooks/use-document-title";
+import { useAppStore } from "@/store/app.store";
 
 const actions = [
   {
-    title: 'عرض النتائج',
-    description: 'افتح شاشة النتائج وابدأ كشف الدرجات.',
+    title: "عرض النتائج",
+    description: "افتح شاشة النتائج وابدأ كشف الدرجات.",
     path: ROUTES.results,
   },
   {
-    title: 'إعداد النتائج',
-    description: 'عدّل أسماء الأسر والدرجات قبل العرض.',
+    title: "إعداد النتائج",
+    description: "عدّل أسماء الأسر والدرجات قبل العرض.",
     path: ROUTES.setup,
   },
-]
+];
 
 export const StageActionsPage = () => {
-  useDocumentTitle('اختيار الإجراء')
-  const selectedStage = useAppStore((state) => state.selectedStage)
+  useDocumentTitle("اختيار الإجراء");
+  const selectedStage = useAppStore((state) => state.selectedStage);
   const stage = useAppStore((state) =>
     state.selectedStage
       ? state.competitionData.stages[state.selectedStage]
       : undefined,
-  )
+  );
 
   if (!selectedStage || !stage) {
-    return <Navigate to={ROUTES.home} replace />
+    return <Navigate to={ROUTES.home} replace />;
   }
 
   return (
@@ -44,7 +44,6 @@ export const StageActionsPage = () => {
         </div>
 
         <header className="mb-8 text-center sm:mb-10">
-          <p className="text-sm font-bold text-brand-200">مرحلة {stage.label}</p>
           <h1 className="mt-2 text-3xl font-bold text-white sm:text-5xl">
             ماذا تريد أن تفعل؟
           </h1>
@@ -68,5 +67,5 @@ export const StageActionsPage = () => {
         </div>
       </div>
     </PageTransition>
-  )
-}
+  );
+};
