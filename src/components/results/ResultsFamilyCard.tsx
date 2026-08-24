@@ -53,7 +53,7 @@ export const ResultsFamilyCard = ({
       </div>
 
       {family.scoreSlots.length > 0 ? (
-        <div className="relative mt-auto grid grid-cols-5 gap-2 pt-7 sm:gap-2.5">
+        <div className="relative mt-auto grid grid-cols-4 gap-2 pt-7 sm:gap-2.5">
           {family.scoreSlots.map((slot) => (
             <button
               key={slot.id}

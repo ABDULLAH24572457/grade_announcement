@@ -6,6 +6,7 @@ import type {
   CompetitionData,
   StageKey,
 } from '@/types/competition.types'
+import { normalizeCompetitionScoreSlots } from '@/utils/competition-data-normalization'
 import { setScoreRevealState } from '@/utils/competition-data-updates'
 import { isCompetitionData } from '@/utils/competition-validation'
 
@@ -32,7 +33,13 @@ class SupabaseCompetitionDataRepository implements CompetitionDataRepository {
     }
 
     if (snapshot && isCompetitionData(snapshot.data)) {
-      return snapshot.data
+      const normalizedData = normalizeCompetitionScoreSlots(snapshot.data)
+
+      if (JSON.stringify(normalizedData) !== JSON.stringify(snapshot.data)) {
+        await this.saveCompetitionData(normalizedData)
+      }
+
+      return normalizedData
     }
 
     const defaultData = createDefaultCompetitionData()

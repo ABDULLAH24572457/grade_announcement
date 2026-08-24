@@ -5,6 +5,7 @@ import {
 import { createDefaultCompetitionData } from '@/constants/default-competition-data'
 import type { PersistedAppData } from '@/types/app.types'
 import type { StageKey } from '@/types/competition.types'
+import { normalizeCompetitionScoreSlots } from '@/utils/competition-data-normalization'
 import { isCompetitionData } from '@/utils/competition-validation'
 
 import type { AppDataService } from './app-data-service.types'
@@ -25,7 +26,12 @@ const isPersistedAppData = (value: unknown): value is PersistedAppData =>
   isCompetitionData(value.competitionData)
 
 const migrateLegacyData = (value: unknown): PersistedAppData | null => {
-  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2)) {
+  if (
+    !isRecord(value) ||
+    (value.schemaVersion !== 1 &&
+      value.schemaVersion !== 2 &&
+      value.schemaVersion !== 3)
+  ) {
     return null
   }
 
@@ -36,7 +42,7 @@ const migrateLegacyData = (value: unknown): PersistedAppData | null => {
   return {
     schemaVersion: APP_DATA_SCHEMA_VERSION,
     selectedStage: isStageKey(value.selectedStage) ? value.selectedStage : null,
-    competitionData,
+    competitionData: normalizeCompetitionScoreSlots(competitionData),
   }
 }
 

@@ -24,6 +24,7 @@ import type {
   Family,
   StageKey,
 } from '@/types/competition.types'
+import { normalizeCompetitionScoreSlots } from '@/utils/competition-data-normalization'
 import { parseScoreValue } from '@/utils/score-validation'
 
 const SUPABASE_FALLBACK_ERROR =
@@ -306,13 +307,15 @@ export const useAppStore = create<AppStore>((set, get) => {
         return
       }
 
+      const normalizedData = normalizeCompetitionScoreSlots(competitionData)
+
       set({
-        competitionData,
+        competitionData: normalizedData,
         lastRemoteUpdateAt: Date.now(),
         realtimeStatus: 'connected',
       })
 
-      void cacheLocalSnapshot(competitionData).catch(() => undefined)
+      void cacheLocalSnapshot(normalizedData).catch(() => undefined)
     },
 
     setRealtimeStatus: (realtimeStatus) => {

@@ -7,11 +7,10 @@ import type {
 } from '@/types/competition.types'
 
 export const SCORE_SLOT_LABELS = [
-  'الدرجة الأولى',
-  'الدرجة الثانية',
-  'الدرجة الثالثة',
-  'الدرجة الرابعة',
-  'الدرجة الخامسة',
+  'الأحد',
+  'الإثنين',
+  'الثلاثاء',
+  'الأربعاء',
 ] as const
 
 export const DEFAULT_FAMILY_COUNTS: Record<StageKey, number> = {

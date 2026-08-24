@@ -1,6 +1,8 @@
 import { Link, Navigate } from 'react-router-dom'
 
 import { PageTransition } from '@/components/common/PageTransition'
+import { ArrowIcon } from '@/components/ui/ArrowIcon'
+import { ActionLink } from '@/components/ui/Button'
 import { ROUTES } from '@/constants/routes.constants'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useAppStore } from '@/store/app.store'
@@ -34,6 +36,13 @@ export const StageActionsPage = () => {
   return (
     <PageTransition className="page-container flex w-full items-center py-10 sm:py-16">
       <div className="mx-auto w-full max-w-3xl">
+        <div className="mb-6 sm:mb-8">
+          <ActionLink to={ROUTES.home} variant="ghost" size="lg">
+            <ArrowIcon direction="back" />
+            رجوع
+          </ActionLink>
+        </div>
+
         <header className="mb-8 text-center sm:mb-10">
           <p className="text-sm font-bold text-brand-200">مرحلة {stage.label}</p>
           <h1 className="mt-2 text-3xl font-bold text-white sm:text-5xl">
