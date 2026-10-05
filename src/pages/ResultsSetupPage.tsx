@@ -9,6 +9,10 @@ import { ArrowIcon } from '@/components/ui/ArrowIcon'
 import { ActionLink, Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import {
+  MAX_FAMILY_COUNT,
+  MIN_FAMILY_COUNT,
+} from '@/constants/default-competition-data'
 import { ROUTES } from '@/constants/routes.constants'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useSetupAccess } from '@/hooks/use-setup-access'
@@ -30,8 +34,12 @@ export const ResultsSetupPage = () => {
   )
   const updateFamilyName = useAppStore((state) => state.updateFamilyName)
   const updateScoreValue = useAppStore((state) => state.updateScoreValue)
+  const setFamilyCount = useAppStore((state) => state.setFamilyCount)
   const resetStageData = useAppStore((state) => state.resetStageData)
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  const [pendingFamilyCount, setPendingFamilyCount] = useState<number | null>(
+    null,
+  )
   const [previewWarning, setPreviewWarning] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMessageTimeoutRef = useRef<number | null>(null)
@@ -39,6 +47,17 @@ export const ResultsSetupPage = () => {
   const closeResetDialog = useCallback(() => {
     setIsResetDialogOpen(false)
   }, [])
+
+  const closeFamilyCountDialog = useCallback(() => {
+    setPendingFamilyCount(null)
+  }, [])
+
+  const confirmFamilyCount = useCallback(() => {
+    if (selectedStage && pendingFamilyCount !== null) {
+      setFamilyCount(selectedStage, pendingFamilyCount)
+    }
+    setPendingFamilyCount(null)
+  }, [pendingFamilyCount, selectedStage, setFamilyCount])
 
   const confirmReset = useCallback(() => {
     if (selectedStage) {
@@ -116,6 +135,24 @@ export const ResultsSetupPage = () => {
     navigate(ROUTES.results)
   }
 
+  const changeFamilyCount = (count: number) => {
+    const safeCount = Math.min(
+      MAX_FAMILY_COUNT,
+      Math.max(MIN_FAMILY_COUNT, count),
+    )
+
+    if (safeCount === stage.families.length) {
+      return
+    }
+
+    if (safeCount < stage.families.length) {
+      setPendingFamilyCount(safeCount)
+      return
+    }
+
+    setFamilyCount(selectedStage, safeCount)
+  }
+
   return (
     <PageTransition className="page-container w-full py-8 sm:py-12">
       {isProtectionEnabled && (
@@ -146,8 +183,56 @@ export const ResultsSetupPage = () => {
 
       <PageHeader
         title={`إعداد نتائج مرحلة ${stage.label}`}
-        description="عدّل أسماء الأسر والدرجات. تُحفظ جميع التغييرات تلقائيًا على هذا الجهاز."
+        description="حدّد عدد الأسر، ثم عدّل أسماءها ودرجاتها. تُحفظ جميع التغييرات تلقائيًا."
       />
+
+      <Card className="mb-5 sm:mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white">عدد الأسر</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-400">
+              يمكنك اختيار عدد من {MIN_FAMILY_COUNT.toLocaleString('ar-SA')} إلى{' '}
+              {MAX_FAMILY_COUNT.toLocaleString('ar-SA')} أسرة.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3" dir="ltr">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-12 min-h-12 w-12 px-0 text-2xl"
+              aria-label="تقليل عدد الأسر"
+              disabled={stage.families.length <= MIN_FAMILY_COUNT}
+              onClick={() => changeFamilyCount(stage.families.length - 1)}
+            >
+              −
+            </Button>
+            <input
+              aria-label="عدد الأسر"
+              className="h-12 w-24 rounded-xl border border-white/10 bg-canvas/60 px-3 text-center text-lg font-bold text-white hover:border-white/20 focus:border-brand-300/60"
+              type="number"
+              min={MIN_FAMILY_COUNT}
+              max={MAX_FAMILY_COUNT}
+              value={stage.families.length}
+              onChange={(event) => {
+                const count = event.currentTarget.valueAsNumber
+                if (Number.isInteger(count)) {
+                  changeFamilyCount(count)
+                }
+              }}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-12 min-h-12 w-12 px-0 text-2xl"
+              aria-label="زيادة عدد الأسر"
+              disabled={stage.families.length >= MAX_FAMILY_COUNT}
+              onClick={() => changeFamilyCount(stage.families.length + 1)}
+            >
+              +
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {stage.families.length > 0 ? (
         <div className="space-y-4 sm:space-y-5">
@@ -220,6 +305,18 @@ export const ResultsSetupPage = () => {
         confirmLabel="نعم، إعادة الضبط"
         onConfirm={confirmReset}
         onCancel={closeResetDialog}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingFamilyCount !== null}
+        title="تقليل عدد الأسر؟"
+        description={`سيتم حذف آخر ${(
+          stage.families.length - (pendingFamilyCount ?? stage.families.length)
+        ).toLocaleString('ar-SA')} من الأسر مع أسمائها ودرجاتها. هل تريد المتابعة؟`}
+        confirmLabel="نعم، تقليل العدد"
+        tone="warning"
+        onConfirm={confirmFamilyCount}
+        onCancel={closeFamilyCountDialog}
       />
 
       <ConfirmDialog

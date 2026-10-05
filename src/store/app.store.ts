@@ -4,6 +4,7 @@ import { APP_DATA_SCHEMA_VERSION } from '@/constants/app.constants'
 import {
   createDefaultCompetitionData,
   createDefaultStageData,
+  resizeFamilies,
 } from '@/constants/default-competition-data'
 import {
   activeCompetitionDataRepository,
@@ -56,6 +57,7 @@ export interface AppStore extends AppData {
     familyId: string,
     name: string,
   ) => void
+  setFamilyCount: (stageKey: StageKey, count: number) => void
   updateScoreValue: (
     stageKey: StageKey,
     familyId: string,
@@ -339,6 +341,25 @@ export const useAppStore = create<AppStore>((set, get) => {
       void persistCompetitionData(get().competitionData)
     },
 
+    setFamilyCount: (stageKey, count) => {
+      set((state) => {
+        const stage = state.competitionData.stages[stageKey]
+
+        return {
+          competitionData: {
+            stages: {
+              ...state.competitionData.stages,
+              [stageKey]: {
+                ...stage,
+                families: resizeFamilies(stageKey, stage.families, count),
+              },
+            },
+          },
+        }
+      })
+      void persistCompetitionData(get().competitionData)
+    },
+
     updateScoreValue: (stageKey, familyId, slotId, value) => {
       const safeValue = parseScoreValue(value)
 
@@ -411,7 +432,10 @@ export const useAppStore = create<AppStore>((set, get) => {
         competitionData: {
           stages: {
             ...state.competitionData.stages,
-            [stageKey]: createDefaultStageData(stageKey),
+            [stageKey]: createDefaultStageData(
+              stageKey,
+              state.competitionData.stages[stageKey].families.length,
+            ),
           },
         },
       }))
